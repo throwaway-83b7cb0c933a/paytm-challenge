@@ -133,7 +133,7 @@ if __name__ == "__main__":
     # Define the session timeout as 15 minutes * 60 seconds/minute = 900 seconds
     max_session_in_seconds = 900
     # Location of the ELB log
-    logfile_path = "../data/2015_07_22_mktplace_shop_web_log_sample.log.gz"
+    logfile_path = "data/2015_07_22_mktplace_shop_web_log_sample.log.gz"
 
     # Create a logging facility
     logger = logging.getLogger(__name__)
