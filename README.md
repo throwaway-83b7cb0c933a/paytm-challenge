@@ -1,5 +1,14 @@
 # Paytm Labs Weblog Challenge
 
+  * [Introduction](#introduction)
+  * [Results](#results)
+    + [Statistics](#statistics)
+    + [Responses to the Coding Challenge](#responses-to-the-coding-challenge)
+    + [Definition of a Session and Its Length](#definition-of-a-session-and-its-length)
+  * [Methodology](#methodology)
+    + [Deployment](#deployment)
+  * [Discussion](#discussion)
+
 ## Introduction
 
 The challenge is to make analytical observations about an AWS Elastic Load Balancer log ([documentation](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/access-log-collection.html#access-log-entry-format)) with the following goals:
@@ -15,11 +24,11 @@ The challenge is to make analytical observations about an AWS Elastic Load Balan
 
 There were 1,158,500 events in the log, with 90,544 distinct IP addresses. 
 
-There were 110,835 putative sessions. 20,291 sessions had only a single request registered within the given session time limit: excluding these, 88,865 sessions were analyzed further.
+There were 110,835 putative sessions. 20,291 sessions had only a single request registered within the given session time limit; excluding these, 88,865 sessions were analyzed further.
 
 ### Responses to the Coding Challenge
 
-1. The average session time was *2 minutes 6 seconds*. This may change depending on how a session is defined: please see my discussion below. 
+1. The average session time was *2 minutes 6 seconds*. This may change depending on how a session is defined. Please see my discussion below. 
 
 2. The three sessions -- _not_ users -- with the most unique URL visits per session were:
 
@@ -39,13 +48,13 @@ Client IP | Maximum duration (s)
 
 The console output of the Spark job can be viewed [here](src/results_console.md).
 
-### Definition of a session and its length
+### Definition of a Session and Its Length
 
 There is little consensus on what constitutes a session. In the absence of requirements, I assumed the following:
 
-- A session must have *more than one request* within the time limit window. This helps avoid a skew in the average session length metric. A different set of analytics may yield better insight into the excluded, single-event "sessions."
+- A session _must have more than one request_ within the time limit window. This helps avoid a skew in the average session length metric. A different set of analytics may yield better insight into the excluded, single-event "sessions."
 
-- The duration of a session is *calculated simply by subtracting* the timestamp of the first event from that of the last. Some metrics add a second or two to account for the consumption time of the content served by the last request; if the requirements call for this, it can easily be added.
+- The duration of a session is calculated simply by subtracting the timestamp of the first event from that of the last. Some metrics add a second or two to account for the consumption time of the content served by the last request: if the requirements call for this, it can easily be added.
 
 - The maximum time limit for a session is _inclusive_: that is, the difference between the timestamps of two adjacent events are 15 minutes, this will count as a continuation of a session. However, limits of `unix_timestamp` function introduces up to 1.999999 seconds of uncertainty. Given the difference in magnitude from the session window (900 seconds) I assumed that this was acceptable.
 
@@ -61,7 +70,7 @@ The total runtime of the [Spark job](src\sessionize.py) was 57 seconds.
 
 ### Deployment
 
-On a newly-instantiated Amazon EC2 instance, or a similar (virtual) machine set up with Python 3.7 and PySpark, clone this GitHub repo and simply execute the Python code:
+On a newly-instantiated Amazon EC2 instance, or a similar (virtual) machine set up with Python 3.7 and PySpark, clone this repo and simply run the Python code:
 ```bash
 python3.7 src/sessionize.py
 ```
