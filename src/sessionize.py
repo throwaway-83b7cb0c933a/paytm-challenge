@@ -28,7 +28,7 @@ def get_base_log(spark, filename):
 
 
 def sessionize_log(logs_df, max_session_in_seconds):
-    """Label each request with a session ID consisting of client IP and a session number.
+    """Label each request with a session ID consisting of client IP and a session label.
     
     Strategy: over a timestamp-sorted window partitioned by client_ip:
     1. calculate the time difference between the current and the previous event
@@ -57,8 +57,15 @@ def sessionize_log(logs_df, max_session_in_seconds):
 
 
 def analyze_log(spark, session_df):
-    """Analyze the logs to answer the questions given by the coding challenge."""
+    """Analyze the logs to answer the coding challenge questions."""
     lines_for_preview = 20
+
+    # Calculate the duration and number of unique URL visits per session.
+    # Herein, a session is defined with the following rules:
+    #   1. A session must contain AT LEAST two events.
+    #   2. Session length is defined by the difference between the first and the last timestamp.
+    #     --> If a client requested two pages on the same second, this session will have a duration of 0 second.
+    #   3. All sessions expire at the end of the log.
 
     session_df.createOrReplaceTempView("logs")
     analysis_df = spark.sql(
@@ -67,12 +74,14 @@ def analyze_log(spark, session_df):
         session_id, 
         max(ts_utc) AS end_time, 
         min(ts_utc) AS start_time, 
-        unix_timestamp(max(ts_utc)) - unix_timestamp(min(ts_utc)) + 1 AS duration_sec,
+        unix_timestamp(max(ts_utc)) - unix_timestamp(min(ts_utc)) AS duration_sec,
         COUNT(DISTINCT request_url) AS unique_url_count
     FROM logs
     GROUP BY 
         client_ip, 
         session_id
+    HAVING
+        COUNT(request_url) > 1
     ORDER BY
         duration_sec DESC"""
     )
@@ -91,11 +100,13 @@ def analyze_log(spark, session_df):
     ).show(lines_for_preview)
 
     # 3. Find the most engaged users, i.e. the IPs with the longest session times.
+    #    Here, duplicates should be eliminated:
+    #    e.g. if a particular client were to have ranked #1 and #3, show it only once.
     print("3. Find the most engaged users, i.e. the IPs with the longest session times.")
-    print(f"For demonstration, {lines_for_preview} sessions with the most number of unique URL visits are shown.")
+    print(f"For demonstration, {lines_for_preview} sessions with the longest durations are shown.")
     spark.sql(
-        """SELECT client_ip, duration_sec FROM log_analysis
-        ORDER BY duration_sec DESC"""
+        """SELECT client_ip, max(duration_sec) FROM log_analysis
+        GROUP BY client_ip ORDER BY max(duration_sec) DESC"""
     ).show(lines_for_preview)
 
 
