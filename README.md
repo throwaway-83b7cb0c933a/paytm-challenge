@@ -1,139 +1,107 @@
-# WeblogChallenge
-This is an interview challenge for Paytm Labs. Please feel free to fork. Pull Requests will be ignored.
+# Paytm Labs Weblog Challenge
 
-The challenge is to make make analytical observations about the data using the distributed tools below.
+## Introduction
 
-## Processing & Analytical goals:
+The challenge is to make analytical observations about an AWS Elastic Load Balancer log ([documentation](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/access-log-collection.html#access-log-entry-format)). The challenge poses the following goals:
 
-1. Sessionize the web log by IP. Sessionize = aggregrate all page hits by visitor/IP during a session.
-    https://en.wikipedia.org/wiki/Session_(web_analytics)
-
+1. Sessionize ([Wikipedia Link](https://en.wikipedia.org/wiki/Session_(web_analytics))) the web log by IP with a session time limit of 15 minutes.
 2. Determine the average session time
-
 3. Determine unique URL visits per session. To clarify, count a hit to a unique URL only once per session.
-
 4. Find the most engaged users, ie the IPs with the longest session times
 
-## Additional questions for Machine Learning Engineer (MLE) candidates:
-1. Predict the expected load (requests/second) in the next minute
+## Results
 
-2. Predict the session length for a given IP
+### Statistics
 
-3. Predict the number of unique URL visits by a given IP
+There were 1,158,500 lines in the log, with 90,544 IP addresses. 
 
-## Tools allowed (in no particular order):
-- Spark (any language, but prefer Scala or Java)
-- Pig
-- MapReduce (Hadoop 2.x only)
-- Flink
-- Cascading, Cascalog, or Scalding
+There were 110,835 putative sessions, but 20,291 sessions had only a single request registered within the given session time limit of 15 minutes. Excluding the said "singleton" sessions, there were 88,865 sessions for further analysis.
 
-If you need Hadoop, we suggest 
-HDP Sandbox:
-http://hortonworks.com/hdp/downloads/
-or 
-CDH QuickStart VM:
-http://www.cloudera.com/content/cloudera/en/downloads.html
+### Responses to the Coding Challenge
 
+1. The average session time was 2 minutes 6 seconds, but please see my discussion below on how a session length is defined. 
 
-### Additional notes:
-- You are allowed to use whatever libraries/parsers/solutions you can find provided you can explain the functions you are implementing in detail.
-- IP addresses do not guarantee distinct users, but this is the limitation of the data. As a bonus, consider what additional data would help make better analytical conclusions
-- For this dataset, complete the sessionization by time window rather than navigation. Feel free to determine the best session window time on your own, or start with 15 minutes.
-- The log file was taken from an AWS Elastic Load Balancer:
-http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/access-log-collection.html#access-log-entry-format
+2. The top three sessions were:
 
+Hits | Client IP
+--- | :---: 
+9,532 | 52.74.219.71
+8,016 | 119.81.61.166
+5,790 | 119.81.61.166
 
+3. The three mot engaged users were:
 
-## How to complete this challenge:
+Client IP | Maximum duration (s)
+--------------- | ----------------:
+  119.81.61.166 |             2,069
+   52.74.219.71 |             2,069
+  106.186.23.95 |             2,069
 
-A. Fork this repo in github
-    https://github.com/PaytmLabs/WeblogChallenge
+The console output of the Spark job can be viewed [here](src\results_console.md).
 
-B. Complete the processing and analytics as defined first to the best of your ability with the time provided.
+### Definition of a session and its length
 
-C. Place notes in your code to help with clarity where appropriate. Make it readable enough to present to the Paytm Labs interview team.
+There's little consensus on the literature on what constitutes a session. In the absence of requirements, I followed these presumptive definitions:
 
-D. Complete your work in your own github repo and send the results to us and/or present them during your interview.
+- A session must have more than one request within the time limit window. This helps avoid a skew in the session length metric. A different set of analytics may yield better insight into the excluded, single-event "sessions," which my transformed dataset can support.
 
-## What are we looking for? What does this prove?
+- The duration of a session is simply the difference between the timestamp of the last and the first event within a single session. Some metrics add a second or two to account for the consumption time of the content served by the last request: if the requirements call for this, it can easily be added.
 
-We want to see how you handle:
-- New technologies and frameworks
-- Messy (ie real) data
-- Understanding data transformation
-This is not a pass or fail test, we want to hear about your challenges and your successes with this particular problem.
+- The maximum time limit for a session is _inclusive_: that is, the difference between the timestamps of two adjacent events are 15 minutes, this will count as a continuation of a session. However, limits of `unix_timestamp` function introduces up to 1.999999 seconds of uncertainty. Given the difference in magnitude from the session window (900 seconds) I assumed that this was acceptable.
 
+## Methodology
 
+Apache Spark was used to extract the event data from the logs, transform into sessions, and load into memory for analytical queries. Given a small size of weblog data, the ETL was prototyped in Databricks Community Edition [notebook](https://databricks-prod-cloudfront.cloud.databricks.com/public/4027ec902e239c93eaaa8714f173bcfc/5211130610419137/1119682703921521/2408820551392452/latest.html), and subsequently, transferred to a `r5.large` Amazon EC2 instance running Python 3.7.6 and stand-alone Spark 2.4.5. The total runtime of the [Spark job](src\sessionize.py) was 57 seconds.
 
+![Screenshot of the Spark UI](docs/screenshot-sparkui.png)
+
+### Quick start
+
+On a newly-instantiated Amazon EC2 instance, or a similar (virtual) machine set up with Python 3.7 and PySpark, clone this GitHub repo and simply execute the Python code:
+```bash
+python3.7 src/sessionize.py
 ```
-(base) ubuntu@ip-10-0-0-6:~/paytm-challenge/src$ python sessionize.py
-20/04/12 21:39:01 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
-Using Spark's default log4j profile: org/apache/spark/log4j-defaults.properties
-Setting default log level to "WARN".
-To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
-1. Determine the average session time.
-+--------------------+                                                          
-|average_session_time|
-+--------------------+
-|  125.66228548922523|
-+--------------------+
 
-2. Determine unique URL visits per session.
-For demonstration, 20 sessions with the most number of unique URL visits are shown.
-+----------------+----------------+                                             
-|      session_id|unique_url_count|
-+----------------+----------------+
-|  52.74.219.71-5|            9532|
-| 119.81.61.166-6|            8016|
-| 119.81.61.166-8|            5790|
-|  52.74.219.71-6|            5478|
-|106.186.23.95-10|            4656|
-| 119.81.61.166-1|            3334|
-|  52.74.219.71-9|            2907|
-| 119.81.61.166-9|            2841|
-| 119.81.61.166-7|            2786|
-| 106.186.23.95-5|            2731|
-| 106.51.132.54-1|            2609|
-|  52.74.219.71-4|            2572|
-|  52.74.219.71-8|            2535|
-| 52.74.219.71-10|            2466|
-|  52.74.219.71-7|            2458|
-|  52.74.219.71-2|            2037|
-| 54.169.20.106-3|            1896|
-| 119.81.61.166-5|            1739|
-| 119.81.61.166-3|            1671|
-|  54.169.0.163-4|            1600|
-+----------------+----------------+
-only showing top 20 rows
-
-3. Find the most engaged users, i.e. the IPs with the longest session times.
-For demonstration, 20 sessions with the longest durations are shown.
-+---------------+-----------------+                                             
-|      client_ip|max(duration_sec)|
-+---------------+-----------------+
-|  119.81.61.166|             2069|
-|   52.74.219.71|             2069|
-|  106.186.23.95|             2069|
-|   125.20.39.66|             2068|
-|   125.19.44.66|             2068|
-| 180.211.69.209|             2067|
-|   192.8.190.10|             2067|
-|  54.251.151.39|             2067|
-| 203.189.176.14|             2066|
-| 203.191.34.178|             2066|
-|  122.15.156.64|             2066|
-| 180.179.213.70|             2066|
-| 180.151.80.140|             2065|
-|213.239.204.204|             2065|
-| 103.29.159.138|             2065|
-| 125.16.218.194|             2065|
-|    78.46.60.71|             2064|
-| 103.29.159.186|             2064|
-|  192.71.175.30|             2063|
-|135.245.115.245|             2063|
-+---------------+-----------------+
-only showing top 20 rows
-
-WARNING:__main__:The Spark job is finished. Press Enter to terminate the program.
+Note: to install Python 3.7.x and PySpark 2.4.5: 
+```bash
+sudo apt-get install -y python3.7 python3-pip openjdk-8-jdk
+sudo update-alternatives --config java  # select OpenJDK 8
+python3.7 -m pip install pyspark
 ```
+
+## Discussion
+
+Leveraging Spark-native code and partitioning the data over client IP address (assumed to be evenly distributed) allowed fast execution of queries with minimal shuffle operation. Looking at the Stages page, only one full shuffle in the beginning took place; the rest of the shuffling operations were much smaller in size.
+
+![Screenshot of the Spark UI, Jobs tab](docs/screenshot-sparkui-jobs.png)
+
+Sessions were labelled in the form of `clientIPaddress-number`, e.g. `52.74.219.71-3`. However, universally unique IDs (UUIDs) are typicalled used for this application. Since Spark does not have a native UUID-generating function, user-defined functions (UDFs) are commonly used. However, in Python, even the most trivial UDF can introduce a severe performance bottleneck. Using a less conventional session label allowed for the implemention to be entirely Spark-native.
+
+Spark lacks a Python API for user-defined aggregation functions (UDAFs). UDAFs may have made the session labeling more efficient by combining the aggregation step with the labeling step. I implemented such a vectorized UDF, but it was very slow, going well over 10 minutes for the first query alone.  
+
+```python
+from uuid import uuid4
+
+import pandas as pd
+from pyspark.sql.functions import pandas_udf, PandasUDFType
+from pyspark.sql.types import StructType, StructField, StringType, TimestampType
+
+
+session_schema = StructType([
+    StructField("ts_utc", TimestampType(), nullable=False),
+    StructField("client_ip", StringType(), nullable=False),
+    StructField("request_url", StringType(), nullable=True),
+    StructField("session_id", StringType(), nullable=False),
+])
+
+@pandas_udf(session_schema, PandasUDFType.GROUPED_MAP)
+def get_session_id(pdf):
+    session_length = pd.Timedelta(15, 'm')
+    # pdf.sort_values(by=['ts_utc'], inplace=True)
+    pdf["session_no"] = (pdf.ts_utc - pdf.ts_utc.shift(1) > session_length).cumsum() + 1
+    to_uuid = {i: str(uuid4()) for i in pdf["session_no"].unique()}
+    pdf["session_id"] = pdf.session_no.map(to_uuid)
+    return pdf[["ts_utc", "client_ip", "request_url", "session_id"]]
+```
+... UUIDs aside, howeer, the same strategy was implementable using Spark-native APIs.
+
