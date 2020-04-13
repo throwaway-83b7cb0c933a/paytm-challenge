@@ -64,7 +64,7 @@ Apache Spark was used to extract the event data from the logs, transform into se
 
 Given a small size of weblog data, the ETL was prototyped in Databricks Community Edition [notebook](https://databricks-prod-cloudfront.cloud.databricks.com/public/4027ec902e239c93eaaa8714f173bcfc/5211130610419137/1119682703921521/2408820551392452/latest.html). Subsequently, production candidate code was written and tested on a single `r5.large` Amazon EC2 instance running Python 3.7.6 and stand-alone Spark 2.4.5. 
 
-The total runtime of the [Spark job](src\sessionize.py) was 57 seconds.
+The total runtime of the [Spark job](src/sessionize.py) was 57 seconds.
 
 ![Screenshot of the Spark UI](docs/screenshot-sparkui.png)
 
