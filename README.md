@@ -56,7 +56,7 @@ There is little consensus on what constitutes a session. In the absence of requi
 
 - The duration of a session is calculated simply by subtracting the timestamp of the first event from that of the last. Some metrics add a second or two to account for the consumption time of the content served by the last request: if the requirements call for this, it can easily be added.
 
-- The maximum time limit for a session is _inclusive_: that is, the difference between the timestamps of two adjacent events are 15 minutes, this will count as a continuation of a session. However, limits of `unix_timestamp` function introduces up to 1.999999 seconds of uncertainty. Given the difference in magnitude from the session window (900 seconds) I assumed that this was acceptable.
+- The maximum time limit for a session is _inclusive_: that is, the difference between the timestamps of two adjacent events are 15 minutes, this will count as a continuation of a session. However, limits of `unix_timestamp` function introduces up to 0.999999 seconds of uncertainty. Given the difference in magnitude from the session window (900 seconds) I assumed that this was acceptable.
 
 ## Methodology
 
